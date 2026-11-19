@@ -220,45 +220,37 @@ class PromptEditorApp {
     openAiModal() {
         this.apiKey = localStorage.getItem('gemini_api_key') || '';
         const modal = document.getElementById('aiModal');
-        
-        const keyNeededView = `
-            <div class="ai-modal-view active">
-                <div class="modal-body" style="align-items: center; text-align: center; justify-content: center;">
-                    <i class="fas fa-key" style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 1rem;"></i>
-                    <h3 class="modal-title" data-i18n-key="ai_modal_activate_title"></h3>
-                    <p class="modal-label" data-i18n-key="ai_modal_activate_desc"></p>
-                </div>
-                <footer class="modal-footer" style="justify-content: center;">
-                     <button class="btn btn-secondary" data-action="close" data-i18n-key="ai_modal_activate_later"></button>
-                     <button class="btn btn-primary" data-action="go-settings" data-i18n-key="ai_modal_activate_button"></button>
-                </footer>
-            </div>`;
+        const apiBtn = this.apiKey
+            ? '<button class="btn btn-secondary" data-action="generate" title="API 키로 바로 생성"><i class="fas fa-bolt"></i> <span>API로 바로 생성</span></button>'
+            : '';
 
         const generateView = `
             <div class="ai-modal-view active">
                 <header class="modal-header">
-                    <h3 class="modal-title" data-i18n-key="ai_modal_title"></h3>
+                    <h3 class="modal-title">AI로 프롬프트 생성</h3>
                     <button class="modal-close-btn">&times;</button>
                 </header>
                 <div class="modal-body">
-                    <label for="aiPromptInput" class="modal-label" data-i18n-key="ai_modal_input_label"></label>
-                    <textarea id="aiPromptInput" class="modal-textarea" placeholder="..."></textarea>
-                    <!-- 아래 경고 문구 P 태그를 추가합니다. -->
-                    <p class="modal-warning" data-i18n-key="ai_modal_alpha_warning"></p>
+                    <label for="aiPromptInput" class="modal-label">1. 만들고 싶은 프롬프트를 적으세요</label>
+                    <textarea id="aiPromptInput" class="modal-textarea" placeholder="예: 친절한 영어 선생님이 내 글을 교정해줘"></textarea>
+                    <button class="btn btn-primary" data-action="copy-open" style="margin:8px 0 14px;">
+                        <i class="fas fa-copy"></i> <span>복사하고 Gemini 열기</span>
+                    </button>
+                    <label for="aiResultInput" class="modal-label">2. Gemini 답변을 여기에 붙여넣으세요 (Ctrl+V)</label>
+                    <textarea id="aiResultInput" class="modal-textarea" placeholder="<role>...</role>"></textarea>
                 </div>
                 <footer class="modal-footer">
-                    <a href="#" class="link" data-action="go-settings" data-i18n-key="ai_modal_change_key_link"></a>
+                    <a href="#" class="link" data-action="go-settings">API 키 설정</a>
                     <div class="modal-actions">
-                         <button class="btn btn-primary" data-action="generate">
-                            <i class="fas fa-magic-wand-sparkles"></i>
-                            <span data-i18n-key="ai_generate_button"></span>
-                         </button>
+                        ${apiBtn}
+                        <button class="btn btn-primary" data-action="apply-result">
+                            <i class="fas fa-check"></i> <span>적용</span>
+                        </button>
                     </div>
                 </footer>
             </div>`;
 
-        modal.innerHTML = `<div class="modal-content">${this.apiKey ? generateView : keyNeededView}</div>`;
-        i18n.updateContent();
+        modal.innerHTML = '<div class="modal-content">' + generateView + '</div>';
         this.setupAiModalListeners();
         modal.classList.add('show');
     }
@@ -268,33 +260,54 @@ class PromptEditorApp {
         if (!modal) return;
 
         modal.querySelector('.modal-close-btn')?.addEventListener('click', () => this.closeModal('aiModal'));
-        modal.querySelector('[data-action="close"]')?.addEventListener('click', () => this.closeModal('aiModal'));
         modal.querySelector('[data-action="go-settings"]')?.addEventListener('click', (e) => {
             e.preventDefault();
             this.closeModal('aiModal');
             this.openSettingsModal();
         });
+        modal.querySelector('[data-action="copy-open"]')?.addEventListener('click', () => this.copyAndOpenGemini());
+        modal.querySelector('[data-action="apply-result"]')?.addEventListener('click', () => this.applyAiResult());
         modal.querySelector('[data-action="generate"]')?.addEventListener('click', (e) => this.handleAiGeneration(e.currentTarget));
     }
 
-    async handleAiGeneration(generateBtn) {
-        const promptInput = document.getElementById('aiPromptInput');
-        const userPrompt = promptInput.value.trim();
-        if (!userPrompt) return;
-
-        if (!this.apiKey) {
-            showNotification(i18n.t('notification_api_key_missing'), 'error');
-            this.closeModal('aiModal');
-            this.openSettingsModal();
+    async copyAndOpenGemini() {
+        const userPrompt = document.getElementById('aiPromptInput').value.trim();
+        if (!userPrompt) {
+            showNotification('먼저 만들고 싶은 프롬프트를 적어주세요.', 'error');
             return;
         }
+        const text = this.buildAiPrompt(userPrompt);
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (err) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            ta.remove();
+        }
+        window.open('https://gemini.google.com/app', '_blank');
+        showNotification('복사됨. Gemini 입력창에 Ctrl+V 후 전송하세요.', 'success');
+    }
 
-        const originalBtnContent = generateBtn.innerHTML;
-        generateBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span data-i18n-key="ai_modal_button_generating"></span>`;
-        i18n.updateContent();
-        generateBtn.disabled = true;
-        promptInput.disabled = true;
+    applyAiResult() {
+        let xml = document.getElementById('aiResultInput').value.trim();
+        xml = xml.replace(/^```[a-zA-Z]*\s*/, '').replace(/```\s*$/, '').trim();
+        if (!xml.startsWith('<')) {
+            showNotification('붙여넣은 내용이 XML 형식이 아닙니다.', 'error');
+            return;
+        }
+        try {
+            this.blockManager.importFromXML(xml, 'replace');
+            this.closeModal('aiModal');
+        } catch (error) {
+            console.error('AI Apply Error:', error);
+            showNotification('XML을 적용하지 못했습니다.', 'error');
+        }
+    }
 
+    buildAiPrompt(userPrompt) {
         const systemPrompt = `
 <role>
 당신은 OpenAI, Anthropic 등 선두적인 LLM 기업의 프롬프트 엔지니어링을 담당하는 시니어 엔지니어입니다.
@@ -348,8 +361,28 @@ class PromptEditorApp {
 [모든 과정은 차근차근(Step by step) 생각하세요.]
 </thinking>
 `;
-        
-        const fullPrompt = `${systemPrompt}\n\n사용자 입력: "${userPrompt}"\n당신이 생성해야 할 XML:`;
+        return systemPrompt + '\n\n사용자 입력: "' + userPrompt + '"\n당신이 생성해야 할 XML:';
+    }
+
+    async handleAiGeneration(generateBtn) {
+        const promptInput = document.getElementById('aiPromptInput');
+        const userPrompt = promptInput.value.trim();
+        if (!userPrompt) return;
+
+        if (!this.apiKey) {
+            showNotification(i18n.t('notification_api_key_missing'), 'error');
+            this.closeModal('aiModal');
+            this.openSettingsModal();
+            return;
+        }
+
+        const originalBtnContent = generateBtn.innerHTML;
+        generateBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> <span data-i18n-key="ai_modal_button_generating"></span>`;
+        i18n.updateContent();
+        generateBtn.disabled = true;
+        promptInput.disabled = true;
+
+        const fullPrompt = this.buildAiPrompt(userPrompt);
 
         try {
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${this.apiKey}`;
