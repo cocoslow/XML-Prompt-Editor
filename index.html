@@ -69,11 +69,7 @@
             <main class="editor-area">
                 <div class="editor-header">
                     <h3 data-i18n-key="editor_title"><i class="fas fa-edit"></i> </h3>
-                    <div class="view-switcher">
-                        <div class="switcher-background"></div>
-                        <button id="view-edit-btn" class="switcher-btn active" data-i18n-key="view_switcher_edit"></button>
-                        <button id="view-preview-btn" class="switcher-btn" data-i18n-key="view_switcher_preview"></button>
-                    </div>
+
                     <!-- AI 생성 버튼 추가 -->
                     <button id="aiGenerateBtn" class="btn btn-ai" data-i18n-key="ai_generate_button" data-i18n-target="title">
                         <i class="fas fa-magic-wand-sparkles"></i>
@@ -118,13 +114,16 @@
                             <p data-i18n-key="empty_state_description"></p>
                         </div>
                     </div>
-                    <div id="preview-view" class="view">
-                        <div class="preview-content-inline">
-                            <pre id="previewCode"></pre>
-                        </div>
-                    </div>
+                    
                 </div>
             </main>
+
+            <aside class="preview-panel" id="previewPanel">
+                <h3 data-i18n-key="view_switcher_preview"><i class="fas fa-eye"></i> </h3>
+                <div class="preview-content-inline">
+                    <pre id="previewCode"></pre>
+                </div>
+            </aside>
         </div>
     </div>
    <!-- 가져오기 모달 -->
