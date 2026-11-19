@@ -352,7 +352,7 @@ class PromptEditorApp {
         const fullPrompt = `${systemPrompt}\n\n사용자 입력: "${userPrompt}"\n당신이 생성해야 할 XML:`;
 
         try {
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${this.apiKey}`;
             
             const response = await fetch(API_URL, {
                 method: 'POST',
