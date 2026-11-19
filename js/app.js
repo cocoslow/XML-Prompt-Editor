@@ -495,6 +495,8 @@ class PromptEditorApp {
     // --- 뷰 전환 함수 ---
     switchView(viewName) {
         // forceUpdate 파라미터는 더 이상 필요 없으므로 제거했습니다.
+        // 미리보기 패널이 항상 표시되므로 뷰 전환은 사용하지 않음
+        if (!document.getElementById('view-preview-btn')) return;
         if (this.currentView === viewName) return;
         this.currentView = viewName;
 
